@@ -1,4 +1,5 @@
 import os
+import joblib
 import cv2 as cv
 import numpy as np
 from sklearn.utils import shuffle
@@ -15,21 +16,34 @@ class DogSimilarity(object):
         self.data_dir = data_dir
         self.visual_words_path = visual_words_path
         self.feature_path = feature_path
+        self.train_images_dir= train_images_dir
+        self.kmeans_weights = kmeans_weights
 
     def load_data(self):
-        images = []
-        dog_folders = os.listdir(self.data_dir)
-        for label in list(dog_folders):
-            label_dir = os.path.join(self.data_dir, label)
-            label_images = []
-            for img_name in os.listdir(label_dir):
-                img_path = os.path.join(label_dir, img_name)
-                img = cv.imread(img_path)
-                img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-                images.append(img)
-        images = np.array(images)
-        print("Training Images Loading")
-        self.images = shuffle(images)
+        if not os.path.exists(self.train_images_dir):
+            print("Training Images Saving")
+            images = []
+            classes = []
+            dog_folders = os.listdir(self.data_dir)
+            for label in list(dog_folders):
+                label_dir = os.path.join(self.data_dir, label)
+                label_images = []
+                for img_name in os.listdir(label_dir):
+                    img_path = os.path.join(label_dir, img_name)
+                    img = cv.imread(img_path)
+                    img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+                    images.append(img)
+                    classes.append(int(label))
+            images = np.array(images)
+            classes = np.array(classes)
+            np.savez(self.train_images_dir, name1=images, name2=classes)
+        else:
+            print("Training Images Loaded")
+            data = np.load(self.train_images_dir)
+            images = data['name1']
+            classes = data['name2']
+
+        self.classes, self.images = shuffle(classes, images)
 
     def sift_extractor(self, img):
         self.extractor = cv.xfeatures2d.SIFT_create()
@@ -53,31 +67,57 @@ class DogSimilarity(object):
         descriptor_array = self.scalar.transform(descriptor_array)
         return [descriptor_array, feature_array]
 
-    def visual_vocabulary(self):
-        if not os.path.exists(self.visual_words_path):
-            descriptor_array = self.compute_features()[0]
-            kmeans = KMeans(n_clusters=self.n_clusters, n_init=10)
-            kmeans.fit(descriptor_array)
-            visual_words = kmeans.cluster_centers_
-            np.save(self.visual_words_path, visual_words)
-        else:
-            visual_words = np.load(self.visual_words_path)
-        self.visual_words = visual_words
+    # def visual_vocabulary(self):
+    #     if not os.path.exists(self.visual_words_path):
+    #         print("Visual Vocabulary Creating")
+    #         descriptor_array = self.compute_features()[0]
+    #         kmeans = KMeans(n_clusters=self.n_clusters, n_init=10)
+    #         kmeans.fit(descriptor_array)
+    #         visual_words = kmeans.cluster_centers_
+    #         np.save(self.visual_words_path, visual_words)
+    #     else:
+    #         print("Visual Vocabulary Loading")
+    #         visual_words = np.load(self.visual_words_path)
+    #     self.visual_words = visual_words
 
-    @staticmethod
-    def find_index(v1, v2):
-        distances = []
-        for val in v2:
-            dist = distance.euclidean(v1, val)
-            distances.append(dist)
-        return np.argmax(np.array(distances))
+    # @staticmethod
+    # def find_index(v1, v2):
+    #     distances = []
+    #     for val in v2:
+    #         dist = distance.euclidean(v1, val)
+    #         distances.append(dist)
+    #     return np.argmax(np.array(distances))
+
+    # def create_histogram(self, feature_array):
+    #     feature_hist = []
+    #     for features in feature_array:
+    #         histogram = np.zeros(len(self.visual_words))
+    #         for feature in features:
+    #             print(DogSimilarity.find_index(feature, self.visual_words))
+    #             histogram[DogSimilarity.find_index(feature, self.visual_words)] += 1
+    #         feature_hist.append(histogram)
+    #     feature_hist = np.array(feature_hist)
+    #     return feature_hist
+
+    def visual_vocabulary(self):
+        if not os.path.exists(self.kmeans_weights):
+            print("Kmeans Model Fitting")
+            descriptor_array = self.compute_features()[0]
+            self.kmeans = KMeans(n_clusters=self.n_clusters, n_init=10)
+            self.kmeans.fit(descriptor_array)
+            joblib.dump(self.kmeans, self.kmeans_weights)
+
+        else:
+            print("Kmeans Model Loading")
+            self.kmeans = joblib.load(self.kmeans_weights)
 
     def create_histogram(self, feature_array):
         feature_hist = []
         for features in feature_array:
-            histogram = np.zeros(len(self.visual_words))
+            histogram = np.zeros(n_clusters)
             for feature in features:
-                histogram[DogSimilarity.find_index(feature, self.visual_words)] += 1
+                idx = self.kmeans.predict([feature])[0]
+                histogram[idx] += 1
             feature_hist.append(histogram)
         feature_hist = np.array(feature_hist)
         return feature_hist
@@ -108,17 +148,18 @@ class DogSimilarity(object):
 
         neighbor = NearestNeighbors(n_neighbors = 4)
         neighbor.fit(self.features)
-        result = neighbor.kneighbors([data])[1].squeeze()[1:]
-
+        result = neighbor.kneighbors([data])[1].squeeze()
         fig=plt.figure(figsize=(6, 6))
         fig.add_subplot(2, 2, 1)
         plt.title('Input Image')
         plt.imshow(self.images[input_idx])
-
+        print("\nInput image label : {}".format(self.classes[input_idx]))
         for i in range(2, 5):
+            neighbour_img_id = result[i-1]
             fig.add_subplot(2, 2, i)
             plt.title('Neighbour {}'.format(i-1))
-            plt.imshow(self.images[i-1])
+            plt.imshow(self.images[neighbour_img_id])
+            print("Neighbour image {} label : {}".format(i-1, self.classes[neighbour_img_id]))
         plt.show()
 
 model = DogSimilarity()
