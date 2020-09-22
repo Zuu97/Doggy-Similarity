@@ -7,13 +7,15 @@ logging.getLogger('tensorflow').disabled = True
 
 import keras
 import numpy as np
+from matplotlib import pyplot as plt
+from sklearn.neighbors import NearestNeighbors
 from keras.models import model_from_json
 from keras.models import Sequential
 from keras.layers import Activation, Dense, Input
 from util import image_data_generator, load_test_data
 from variables import *
 
-class VGG16(object):
+class DogSimDetector(object):
     def __init__(self):
         test_classes, test_images = load_test_data()
         train_generator, validation_generator, test_generator = image_data_generator()
@@ -92,15 +94,37 @@ class VGG16(object):
         self.feature_model = feature_model
 
     def extract_features(self):
-        Predictions = self.feature_model.predict(self.test_images)
-        print(Predictions.shape)
+        self.test_features = self.feature_model.predict(self.test_images)
+
+    def predict_neighbour(self, img_id):
+        data = self.test_features[img_id]
+
+        neighbor = NearestNeighbors(n_neighbors = 6)
+        neighbor.fit(self.test_features)
+        result = neighbor.kneighbors([data])[1].squeeze()
+        fig=plt.figure(figsize=(8, 8))
+        fig.add_subplot(2, 3, 1)
+        plt.title('Input Image')
+        plt.imshow(self.test_images[img_id])
+        print("\nInput image label : {}".format(self.test_classes[img_id]))
+        for i in range(2, 7):
+            neighbour_img_id = result[i-1]
+            fig.add_subplot(2, 3, i)
+            plt.title('Neighbour {}'.format(i-1))
+            plt.imshow(self.test_images[neighbour_img_id])
+            print("Neighbour image {} label : {}".format(i-1, self.test_classes[neighbour_img_id]))
+        plt.show()
 
     def run_feature_model(self):
         self.feature_extractor()
         self.extract_features()
 
+    def run(self):
+        self.run_VGG16()
+        self.run_feature_model()
+
 if __name__ == "__main__":
-    model = VGG16()
+    model = DogSimDetector()
     model.model_conversion()
-    model.run_VGG16()
-    model.run_feature_model()
+    model.run()
+    model.predict_neighbour(12)

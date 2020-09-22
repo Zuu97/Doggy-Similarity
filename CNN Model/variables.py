@@ -19,6 +19,9 @@ epochs = 20
 verbose = 1
 val_split = 0.15
 
+host = '0.0.0.0'
+port = 5000
+
 # data directories and model paths
 train_dir = 'Train images/'
 test_dir = 'Test images/'
