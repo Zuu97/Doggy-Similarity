@@ -4,7 +4,7 @@ import tensorflow as tf
 
 import logging
 logging.getLogger('tensorflow').disabled = True
-
+import base64
 import keras
 import numpy as np
 from matplotlib import pyplot as plt
@@ -12,21 +12,26 @@ from sklearn.neighbors import NearestNeighbors
 from keras.models import model_from_json
 from keras.models import Sequential
 from keras.layers import Activation, Dense, Input
-from util import image_data_generator, load_test_data
+from util import *
 from variables import *
 
 class DogSimDetector(object):
     def __init__(self):
-        test_classes, test_images = load_test_data()
+        test_classes, test_images, test_byte_strings = load_test_data(test_dir, test_data_path)
+        train_classes, train_images, _ = load_test_data(train_dir, train_data_path)
         train_generator, validation_generator, test_generator = image_data_generator()
+
         self.test_generator = test_generator
         self.train_generator = train_generator
         self.validation_generator = validation_generator
         self.train_step = self.train_generator.samples // batch_size
         self.validation_step = self.validation_generator.samples // valid_size
         self.test_step = self.test_generator.samples // batch_size
+        self.train_classes = train_classes
+        self.train_images = train_images
         self.test_classes = test_classes
         self.test_images = test_images
+        self.test_byte_strings = test_byte_strings
 
     def model_conversion(self): #VGG16 is not build through sequential API, so we need to convert it to sequential
         vgg_functional = keras.applications.vgg16.VGG16()
@@ -95,36 +100,50 @@ class DogSimDetector(object):
 
     def extract_features(self):
         self.test_features = self.feature_model.predict(self.test_images)
+        self.train_features = self.feature_model.predict(self.train_images)
 
-    def predict_neighbour(self, img_id):
-        data = self.test_features[img_id]
+    def predict_neighbour(self, byte_url):
+        update_db(byte_url)
+        if byte_url in self.test_byte_strings:
+            n_neighbours = {}
+            img_id = self.test_byte_strings.tolist().index(byte_url)
+            data = self.test_features[img_id]
+            neighbor = NearestNeighbors(n_neighbors = 6)
+            neighbor.fit(self.test_features)
+            result = neighbor.kneighbors([data])[1].squeeze()
+            fig=plt.figure(figsize=(8, 8))
+            fig.add_subplot(2, 3, 1)
+            plt.title('Input Image')
+            plt.imshow(self.test_images[img_id])
+            print("\nInput image label : {}".format(self.test_classes[img_id]))
+            for i in range(2, 7):
+                neighbour_img_id = result[i-1]
+                fig.add_subplot(2, 3, i)
+                plt.title('Neighbour {}'.format(i-1))
+                plt.imshow(self.test_images[neighbour_img_id])
+                print("Neighbour image {} label : {}".format(i-1, self.test_classes[neighbour_img_id]))
 
-        neighbor = NearestNeighbors(n_neighbors = 6)
-        neighbor.fit(self.test_features)
-        result = neighbor.kneighbors([data])[1].squeeze()
-        fig=plt.figure(figsize=(8, 8))
-        fig.add_subplot(2, 3, 1)
-        plt.title('Input Image')
-        plt.imshow(self.test_images[img_id])
-        print("\nInput image label : {}".format(self.test_classes[img_id]))
-        for i in range(2, 7):
-            neighbour_img_id = result[i-1]
-            fig.add_subplot(2, 3, i)
-            plt.title('Neighbour {}'.format(i-1))
-            plt.imshow(self.test_images[neighbour_img_id])
-            print("Neighbour image {} label : {}".format(i-1, self.test_classes[neighbour_img_id]))
-        plt.show()
+                base64_string = base64.b64encode(self.test_images[neighbour_img_id])
+                n_neighbours['neighbour ' + str(i-1)] = base64_string
+
+            plt.show()
+
+            return n_neighbours
+
+        else:
+            print("Byte Url doesn't exists")
 
     def run_feature_model(self):
         self.feature_extractor()
         self.extract_features()
+        print('Done')
 
     def run(self):
         self.run_VGG16()
         self.run_feature_model()
 
-if __name__ == "__main__":
-    model = DogSimDetector()
-    model.model_conversion()
-    model.run()
-    model.predict_neighbour(12)
+# if __name__ == "__main__":
+#     model = DogSimDetector()
+#     model.model_conversion()
+#     model.run()
+#     print(model.predict_neighbour('VGVzdCBpbWFnZXMvNFxuMDIwODYwNzlfMTc1OS5qcGc='))

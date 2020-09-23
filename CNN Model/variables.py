@@ -1,3 +1,4 @@
+import os
 classes = [ '0', '1', '2', '3', '4']
 # , '5', '6', '7', '8', '9'
 batch_size = 8
@@ -21,10 +22,14 @@ val_split = 0.15
 
 host = '0.0.0.0'
 port = 5000
+table_name = 'doggy'
+root_password = 'Isuru767922513'
+db_url = 'mysql+pymysql://root:{}@localhost:3306/doggy_similarity'.format(root_password)
 
 # data directories and model paths
-train_dir = 'Train images/'
-test_dir = 'Test images/'
-test_data_path = 'weights/test_data.npz'
+train_dir = os.path.join(os.getcwd(), 'Train images/')
+test_dir = os.path.join(os.getcwd(), 'Test images/')
+test_data_path = 'weights/Test_data.npz'
+train_data_path = 'weights/Train_data.npz'
 model_weights = "weights/DoggySim.h5"
 model_architecture = "weights/DoggySim.json"

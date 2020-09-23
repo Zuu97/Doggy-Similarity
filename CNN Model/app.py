@@ -26,13 +26,13 @@ model.run()
 @app.route("/predict", methods=["POST"])
 def predict():
     message = request.get_json(force=True)
-    img_id = int(message['img_id'])
-    model.predict_neighbour(img_id)
+    byte_url = int(message['byte_url'])
+    n_neighbours = model.predict_neighbour(byte_url)
 
-    # response = {
-    #         'input_id': recommended_ids
-    # }
-    # return jsonify(response)
+    response = {
+            'n_neighbours': n_neighbours
+    }
+    return jsonify(response)
 
 if __name__ == "__main__":
     app.run(debug=True, host=host, port= port, threaded=False)
