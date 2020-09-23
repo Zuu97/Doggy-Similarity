@@ -23,7 +23,7 @@ val_split = 0.15
 host = '0.0.0.0'
 port = 5000
 table_name = 'doggy'
-root_password = 'Isuru767922513'
+root_password = '1234'
 db_url = 'mysql+pymysql://root:{}@localhost:3306/doggy_similarity'.format(root_password)
 
 # data directories and model paths
