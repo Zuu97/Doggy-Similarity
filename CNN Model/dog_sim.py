@@ -115,13 +115,13 @@ class DogSimDetector(object):
             fig.add_subplot(2, 3, 1)
             plt.title('Input Image')
             plt.imshow(self.test_images[img_id])
-            print("\nInput image label : {}".format(self.test_classes[img_id]))
+            # print("\nInput image label : {}".format(self.test_classes[img_id]))
             for i in range(2, 7):
                 neighbour_img_id = result[i-1]
                 fig.add_subplot(2, 3, i)
                 plt.title('Neighbour {}'.format(i-1))
                 plt.imshow(self.test_images[neighbour_img_id])
-                print("Neighbour image {} label : {}".format(i-1, self.test_classes[neighbour_img_id]))
+                # print("Neighbour image {} label : {}".format(i-1, self.test_classes[neighbour_img_id]))
 
                 base64_string = base64.b64encode(self.test_images[neighbour_img_id])
                 n_neighbours['neighbour ' + str(i-1)] = base64_string
