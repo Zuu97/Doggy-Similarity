@@ -10,7 +10,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from sklearn.neighbors import NearestNeighbors
 from keras.models import model_from_json
-from keras.models import Sequential
+from keras.models import Model
 from keras.layers import Activation, Dense, Input
 from util import *
 from variables import *
@@ -35,14 +35,20 @@ class DogSimDetector(object):
 
     def model_conversion(self): #VGG16 is not build through sequential API, so we need to convert it to sequential
         vgg_functional = keras.applications.vgg16.VGG16()
-        model = Sequential()
-        for layer in vgg_functional.layers[:-1]:# remove the softmax in original model. because we have only 3 classes
+        x = Input(shape=input_shape)
+        inputs = x
+        for layer in vgg_functional.layers[1:-1]:# remove the softmax in original model. because we have only 3 classes
             layer.trainable = False
-            model.add(layer)
-        model.add(Dense(dense_1, activation='relu'))
-        model.add(Dense(dense_2, activation='relu'))
-        model.add(Dense(dense_2, activation='relu'))
-        model.add(Dense(num_classes, activation='softmax'))
+            x = layer(x)
+        x = Dense(dense_1, activation="relu")(x)
+        x = Dense(dense_2, activation="relu")(x)
+        out1 = Dense(dense_2, activation="relu")(x)
+        out2 = Dense(num_classes, activation="softmax")(out1)
+        model = Model(
+                    inputs=inputs,
+                    outputs=[out2, out1],
+                    name="VGG16 Custom Model")
+
         model.summary()
         self.model = model
 
@@ -77,11 +83,12 @@ class DogSimDetector(object):
 
     def predict_VGG16(self):
         Predictions = self.model.predict_generator(self.test_generator,steps=self.test_step)
-        P = np.argmax(Predictions,axis=1)
-        loss , accuracy = self.model.evaluate_generator(self.test_generator, steps=self.test_step)
-        print("test loss : ",loss)
-        print("test accuracy : ",accuracy)
-        print("Predictions : ",P)
+        # P = np.argmax(Predictions,axis=1)
+        # loss , accuracy = self.model.evaluate_generator(self.test_generator, steps=self.test_step)
+        # print("test loss : ",loss)
+        # print("test accuracy : ",accuracy)
+        # print(Predictions.shape)
+        print("Predictions : ",Predictions)
 
     def run_VGG16(self):
         if os.path.exists(model_weights):
@@ -89,7 +96,7 @@ class DogSimDetector(object):
         else:
             self.train()
             self.save_model()
-        # self.predict_VGG16()
+        self.predict_VGG16()
 
     def feature_extractor(self):
         feature_model = Sequential()
@@ -140,10 +147,10 @@ class DogSimDetector(object):
 
     def run(self):
         self.run_VGG16()
-        self.run_feature_model()
+        # self.run_feature_model()
 
-# if __name__ == "__main__":
-#     model = DogSimDetector()
-#     model.model_conversion()
-#     model.run()
-#     print(model.predict_neighbour('VGVzdCBpbWFnZXMvNFxuMDIwODYwNzlfMTc1OS5qcGc='))
+if __name__ == "__main__":
+    model = DogSimDetector()
+    model.model_conversion()
+    model.run()
+    # print(model.predict_neighbour('VGVzdCBpbWFnZXMvNFxuMDIwODYwNzlfMTc1OS5qcGc='))
