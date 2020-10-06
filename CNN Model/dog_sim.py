@@ -1,19 +1,21 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
-
 import logging
 logging.getLogger('tensorflow').disabled = True
 import base64
-import keras
 import numpy as np
+import keras
+from keras.models import model_from_json, Sequential, Model
+from keras.layers import Activation, Dense, Input
 from matplotlib import pyplot as plt
 from sklearn.neighbors import NearestNeighbors
-from keras.models import model_from_json
-from keras.models import Model
-from keras.layers import Activation, Dense, Input
 from util import *
 from variables import *
+
+physical_devices = tf.config.experimental.list_physical_devices('GPU')
+print("\nNum GPUs Available: {}\n".format(len(physical_devices)))
+tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 class DogSimDetector(object):
     def __init__(self):
@@ -33,23 +35,20 @@ class DogSimDetector(object):
         self.test_images = test_images
         self.test_byte_strings = test_byte_strings
 
-    def model_conversion(self): #VGG16 is not build through sequential API, so we need to convert it to sequential
-        vgg_functional = keras.applications.vgg16.VGG16()
-        x = Input(shape=input_shape)
-        inputs = x
-        for layer in vgg_functional.layers[1:-1]:# remove the softmax in original model. because we have only 3 classes
+    def model_conversion(self): #MobileNet is not build through sequential API, so we need to convert it to sequential
+        mobilenet_functional = keras.applications.MobileNet()
+        model = Sequential()
+        for layer in mobilenet_functional.layers[:-1]:# remove the softmax in original model. because we have only 3 classes
             layer.trainable = False
-            x = layer(x)
-        x = Dense(dense_1, activation="relu")(x)
-        x = Dense(dense_2, activation="relu")(x)
-        out1 = Dense(dense_2, activation="relu")(x)
-        out2 = Dense(num_classes, activation="softmax")(out1)
-        model = Model(
-                    inputs=inputs,
-                    outputs=[out2, out1],
-                    name="VGG16 Custom Model")
-
-        model.summary()
+            model.add(layer)
+        model.add(Dense(dense_1, activation='relu'))
+        model.add(Dense(dense_2, activation='relu'))
+        model.add(Dense(dense_2, activation='relu'))
+        model.add(Dense(dense_3, activation='relu'))
+        model.add(Dense(dense_3, activation='relu'))
+        model.add(Dense(dense_3, activation='relu'))
+        model.add(Dense(num_classes, activation='softmax'))
+        # model.summary()
         self.model = model
 
     def train(self):
@@ -81,26 +80,26 @@ class DogSimDetector(object):
         self.model.compile(loss='categorical_crossentropy', optimizer='Adam', metrics=['accuracy'])
 
 
-    def predict_VGG16(self):
+    def predict_MobileNet(self):
         Predictions = self.model.predict_generator(self.test_generator,steps=self.test_step)
-        # P = np.argmax(Predictions,axis=1)
-        # loss , accuracy = self.model.evaluate_generator(self.test_generator, steps=self.test_step)
-        # print("test loss : ",loss)
-        # print("test accuracy : ",accuracy)
+        P = np.argmax(Predictions,axis=1)
+        loss , accuracy = self.model.evaluate_generator(self.test_generator, steps=self.test_step)
+        print("test loss : ",loss)
+        print("test accuracy : ",accuracy)
         # print(Predictions.shape)
-        print("Predictions : ",Predictions)
+        # print("Predictions : ",Predictions)
 
-    def run_VGG16(self):
+    def run_MobileNet(self):
         if os.path.exists(model_weights):
             self.load_model()
         else:
             self.train()
             self.save_model()
-        self.predict_VGG16()
+        self.predict_MobileNet()
 
     def feature_extractor(self):
         feature_model = Sequential()
-        for layer in self.model.layers[:-1]:# remove the softmax in original model. because we have only 3 classes
+        for layer in self.model.layers[:-4]:# remove the softmax in original model. because we have only 3 classes
             layer.trainable = False
             feature_model.add(layer)
         self.feature_model = feature_model
@@ -110,25 +109,25 @@ class DogSimDetector(object):
         self.train_features = self.feature_model.predict(self.train_images)
 
     def predict_neighbour(self, byte_url):
-        update_db(byte_url)
+        # update_db(byte_url)
         if byte_url in self.test_byte_strings:
             n_neighbours = {}
             img_id = self.test_byte_strings.tolist().index(byte_url)
             data = self.test_features[img_id]
-            neighbor = NearestNeighbors(n_neighbors = 6)
+            neighbor = NearestNeighbors(n_neighbors = 4)
             neighbor.fit(self.test_features)
             result = neighbor.kneighbors([data])[1].squeeze()
             fig=plt.figure(figsize=(8, 8))
-            fig.add_subplot(2, 3, 1)
+            fig.add_subplot(2, 2, 1)
             plt.title('Input Image')
             plt.imshow(self.test_images[img_id])
-            # print("\nInput image label : {}".format(self.test_classes[img_id]))
+            print("\nInput image label : {}".format(self.test_classes[img_id]))
             for i in range(2, 7):
                 neighbour_img_id = result[i-1]
                 fig.add_subplot(2, 3, i)
                 plt.title('Neighbour {}'.format(i-1))
                 plt.imshow(self.test_images[neighbour_img_id])
-                # print("Neighbour image {} label : {}".format(i-1, self.test_classes[neighbour_img_id]))
+                print("Neighbour image {} label : {}".format(i-1, self.test_classes[neighbour_img_id]))
 
                 base64_string = base64.b64encode(self.test_images[neighbour_img_id])
                 n_neighbours['neighbour ' + str(i-1)] = base64_string
@@ -143,14 +142,13 @@ class DogSimDetector(object):
     def run_feature_model(self):
         self.feature_extractor()
         self.extract_features()
-        print('Done')
 
     def run(self):
-        self.run_VGG16()
-        # self.run_feature_model()
+        self.run_MobileNet()
+        self.run_feature_model()
 
 if __name__ == "__main__":
     model = DogSimDetector()
     model.model_conversion()
     model.run()
-    # print(model.predict_neighbour('VGVzdCBpbWFnZXMvNFxuMDIwODYwNzlfMTc1OS5qcGc='))
+    model.predict_neighbour(model.test_byte_strings[15])

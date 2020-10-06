@@ -14,16 +14,17 @@ rotation_range = 20
 shift_range = 0.2
 rescale = 1./255
 dense_1 = 512
-dense_2 = 128
+dense_2 = 256
+dense_3 = 64
 num_classes = 5
-epochs = 20
+epochs = 10
 verbose = 1
 val_split = 0.15
 
 host = '0.0.0.0'
 port = 5000
 table_name = 'doggy'
-root_password = '1234'
+root_password = 'Isuru767922513'
 db_url = 'mysql+pymysql://root:{}@localhost:3306/doggy_similarity'.format(root_password)
 
 # data directories and model paths
@@ -31,5 +32,5 @@ train_dir = os.path.join(os.getcwd(), 'Train images/')
 test_dir = os.path.join(os.getcwd(), 'Test images/')
 test_data_path = 'weights/Test_data.npz'
 train_data_path = 'weights/Train_data.npz'
-model_weights = "weights/DoggySim.h5"
-model_architecture = "weights/DoggySim.json"
+model_weights = "weights/doggy_mobilenet.h5"
+model_architecture = "weights/doggy_mobilenet.json"

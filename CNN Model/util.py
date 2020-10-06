@@ -7,14 +7,13 @@ import pandas as pd
 import cv2 as cv
 import base64
 from sklearn.utils import shuffle
-from keras.preprocessing.image import ImageDataGenerator
 from sqlalchemy import create_engine
 import sqlalchemy
 
 from variables import*
 
 def image_data_generator():
-    train_datagen = ImageDataGenerator(
+    train_datagen = keras.preprocessing.image.ImageDataGenerator(
                                     rescale = rescale,
                                     rotation_range = rotation_range,
                                     shear_range = shear_range,
@@ -24,7 +23,7 @@ def image_data_generator():
                                     horizontal_flip = True,
                                     validation_split= val_split
                                     )
-    test_datagen = ImageDataGenerator(rescale = rescale)
+    test_datagen = keras.preprocessing.image.ImageDataGenerator(rescale = rescale)
 
 
     train_generator = train_datagen.flow_from_directory(
