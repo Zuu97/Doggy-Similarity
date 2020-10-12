@@ -5,7 +5,7 @@ import pandas as pd
 from variables import *
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-from dog_sim import DogSimDetector
+from model import DogSimDetector
 import logging
 logging.getLogger('tensorflow').disabled = True
 
@@ -20,7 +20,6 @@ from flask import request
 app = Flask(__name__)
 
 model = DogSimDetector()
-model.model_conversion()
 model.run()
 
 @app.route("/predict", methods=["POST"])

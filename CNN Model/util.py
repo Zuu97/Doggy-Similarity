@@ -1,6 +1,5 @@
 import tensorflow as tf
 import numpy as np
-import keras
 import os
 import numpy as np
 import pandas as pd
@@ -13,7 +12,7 @@ import sqlalchemy
 from variables import*
 
 def image_data_generator():
-    train_datagen = keras.preprocessing.image.ImageDataGenerator(
+    train_datagen = tf.keras.preprocessing.image.ImageDataGenerator(
                                     rescale = rescale,
                                     rotation_range = rotation_range,
                                     shear_range = shear_range,
@@ -23,7 +22,7 @@ def image_data_generator():
                                     horizontal_flip = True,
                                     validation_split= val_split
                                     )
-    test_datagen = keras.preprocessing.image.ImageDataGenerator(rescale = rescale)
+    test_datagen = tf.keras.preprocessing.image.ImageDataGenerator(rescale = rescale)
 
 
     train_generator = train_datagen.flow_from_directory(
@@ -75,7 +74,7 @@ def load_test_data(data_path, save_path):
             for img_name in os.listdir(label_dir):
                 img_path = os.path.join(label_dir, img_name)
                 img = cv.imread(img_path)
-                img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+                img = cv.cvtColor(img, cv.COLOR_BGR2RGB)*rescale
                 img = cv.resize(img, target_size)
 
                 images.append(img)
@@ -83,8 +82,8 @@ def load_test_data(data_path, save_path):
                 byte_url = encode_byte_string(img_path)
                 byte_strings.append(byte_url)
 
-        images = np.array(images)
-        classes = np.array(classes)
+        images = np.array(images).astype('float32')
+        classes = np.array(classes).astype('float32')
         byte_strings = np.array(byte_strings)
         np.savez(save_path, name1=images, name2=classes, name3=byte_strings)
     else:
